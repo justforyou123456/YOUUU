@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Gallery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBn5/ghJTY5cePMuQY2XJCCVw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            scroll-behavior: smooth;
+            background-color: #f1f2f3; /* slate-50 */
+            color: #334155; /* slate-800 */
+        }
+        /* เพิ่มสไตล์สำหรับการซ้อนทับกันของรูปภาพใน Gallery */
+        .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem; /* เพิ่มระยะห่างระหว่างรูปภาพ */
+        }
+
+        .gallery-item-wrapper {
+        position: relative;
+        /* ไม่ต้องกำหนด height เพื่อให้รูปแสดงตามสัดส่วนจริง */
+        /* ไม่มีการใช้ margin-top, padding หรือ z-index ที่ไม่จำเป็นอีกต่อไป */
+        }
+
+        .gallery-item {
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 0.5rem; /* rounded-lg */
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* shadow-md */
+        transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+        display: block;
+        }
+
+        .gallery-item-wrapper:hover .gallery-item {
+        transform: scale(1.05); /* ปรับการขยายเล็กน้อยให้ดูสวยงาม */
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .lightbox {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 80%;
+            object-fit: contain;
+            display: block;
+            margin-bottom: 10px;
+        }
+        .close-button, .nav-button, .slideshow-control {
+            position: absolute;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            user-select: none;
+            text-shadow: 0 0 5px rgba(0,0,0,0.7);
+        }
+        .close-button {
+            top: 20px;
+            right: 35px;
+            font-size: 50px;
+        }
+        .nav-button {
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 10px 15px;
+            background-color: rgba(0,0,0,0.5);
+            border-radius: 50%;
+        }
+        .nav-button:hover,
+        .close-button:hover,
+        .close-button:focus,
+        .slideshow-control:hover {
+            color: #ccc;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        #prev-button {
+            left: 20px;
+        }
+        #next-button {
+            right: 20px;
+        }
+        .lightbox-info {
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 80%;
+            font-size: 1.1rem;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        }
+        .lightbox.active .lightbox-info {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .music-control {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1001;
+            background-color: rgba(0,0,0,0.6);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: background-color 0.3s ease;
+        }
+        .music-control:hover {
+            background-color: rgba(0,0,0,0.8);
+        }
+        .music-control i {
+            margin-right: 8px;
+        }
+        .slideshow-control {
+            top: 20px;
+            left: 20px;
+            font-size: 30px;
+            background-color: rgba(0,0,0,0.5);
+            padding: 8px 12px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            z-index: 10; /* ให้ปุ่มอยู่ด้านบนเสมอ */
+        }
+        .slideshow-control i {
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <header class="bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-center h-16">
+                <div class="flex items-center">
+                    <span class="font-extrabold text-xl text-cyan-700 flex items-center">
+                        <i class="fas fa-camera-retro mr-2 text-cyan-600"></i> Just For You
+                    </span>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="py-16">
+        <section id="gallery" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-4xl font-extrabold text-center text-cyan-800 mb-12">
+                <i class="fas fa-images mr-3 text-cyan-600"></i> Congratulations
+            </h2>
+
+            <div class="max-w-4xl mx-auto mb-12 bg-white p-8 rounded-lg shadow-md">
+                <p class="text-lg text-slate-700 leading-relaxed text-center">
+                    Congratulations <strong>สำหรับการจบการศึกษาวิศวกรรมโยธา KMUTT</strong> เก่งมากๆเลยนะที่ผ่านมันมาได้อยากให้โฟมภูมิใจในตัวเองมากๆเลยนะ แต่ชีวิตความเป็นจริงมันกำลังเริ่มเท่านั้นเอง โฟมเป็นคนเก่ง น่ารักและเข็มแข็งมาโดยตลอดเก็บความน่ารักตรงนี้ไว้นะ ในชีวิตของคนอ่ะมันจะมีความสุขและความเสียใจ ความเคลียด ความผิดหวัง โฟมจะผ่านมันได้ได้แน่นอนเป็นกำลังให้มากๆเลยนะ
+                </p>
+            </div>
+            <div class="gallery-grid">
+                 <div class="gallery-item-wrapper">
+                    <img src="S-1.jpg" alt="Gallery Image 1" class="gallery-item" data-info="ภาพที่ 1: การต้อนรับลูกค้า">
+                </div>
+                <div class="gallery-item-wrapper">
+                    <img src="S-2.jpg" alt="Gallery Image 2" class="gallery-item" data-info="ภาพที่ 2: บรรยากาศการทำงาน">
+                </div>
+                <div class="gallery-item-wrapper">
+                    <img src="S-3.jpg" alt="Gallery Image 3" class="gallery-item" data-info="ภาพที่ 3: โซลูชั่นนวัตกรรม">
+                </div>
+                <div class="gallery-item-wrapper">
+                    <img src="S-4.jpg" alt="Gallery Image 4" class="gallery-item" data-info="ภาพที่ 4: การทำงานเป็นทีม">
+                </div>
+                <div class="gallery-item-wrapper">
+                    <img src="S-5.jpg" alt="Gallery Image 5" class="gallery-item" data-info="ภาพที่ 5: การนำเสนอผลงาน">
+                </div>
+                <div class="gallery-item-wrapper">
+                    <img src="S-6.jpg" alt="Gallery Image 6" class="gallery-item" data-info="ภาพที่ 6: ความร่วมมือกับพันธมิตร">
+                </div>
+                <div class="gallery-item-wrapper">
+                    <img src="S-7.jpg" alt="Gallery Image 7" class="gallery-item" data-info="ภาพที่ 7: ออฟฟิศที่ทันสมัย">
+                </div>
+                <div class="gallery-item-wrapper">
+                    <img src="S-8.jpg" alt="Gallery Image 8" class="gallery-item" data-info="ภาพที่ 8: กิจกรรมภายในบริษัท">
+                </div>
+                <div class="gallery-item-wrapper">
+                    <img src="S-9.jpg" alt="Gallery Image 9" class="gallery-item" data-info="ภาพที่ 9: การพัฒนาผลิตภัณฑ์">
+                </div>
+                <div class="gallery-item-wrapper">
+                    <img src="S-10.jpg" alt="Gallery Image 10" class="gallery-item" data-info="ภาพที่ 10: การฝึกอบรมพนักงาน">
+                </div>
+                <div class="gallery-item-wrapper">
+                    <img src="S-11.jpg" alt="Gallery Image 11" class="gallery-item" data-info="ภาพที่ 11: เทคโนโลยีใหม่ล่าสุด">
+                </div>
+                <div class="gallery-item-wrapper">
+                    <img src="S-12.jpg" alt="Gallery Image 11" class="gallery-item" data-info="ภาพที่ 11: เทคโนโลยีใหม่ล่าสุด">
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="lightbox" class="lightbox">
+        <span class="close-button">&times;</span>
+        <span id="prev-button" class="nav-button">&#10094;</span>
+        <img class="lightbox-content" id="lightbox-img">
+        <div id="lightbox-info" class="lightbox-info"></div>
+        <span id="next-button" class="nav-button">&#10095;</span>
+        <div id="slideshow-control" class="slideshow-control">
+            <i id="slideshow-icon" class="fas fa-pause"></i> <span id="slideshow-text">หยุดสไลด์โชว์</span>
+        </div>
+    </div>
+
+    <div id="music-control" class="music-control">
+        <i id="music-icon" class="fas fa-music"></i>
+        <span id="music-text">เปิดเพลง</span>
+    </div>
+    <audio id="background-music" loop>
+        <source src="ดาวหางฮัลเลย์ - fellow fellow (youtube).mp3" type="audio/mpeg">
+    </audio>
+
+    <footer class="bg-slate-900 text-slate-400 mt-20 py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm">
+            <p class="mb-1">&copy; 2025 </p>
+            <p>Wishing you happiness like this always.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // เลือก gallery-item-wrapper แทน gallery-item โดยตรง
+            const galleryItemWrappers = document.querySelectorAll('.gallery-item-wrapper');
+            const galleryItems = document.querySelectorAll('.gallery-item'); // ยังคงใช้ galleryItems สำหรับดึง src/info
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImg = document.getElementById('lightbox-img');
+            const lightboxInfo = document.getElementById('lightbox-info');
+            const closeButton = document.querySelector('.close-button');
+            const prevButton = document.getElementById('prev-button');
+            const nextButton = document.getElementById('next-button');
+
+            const musicControl = document.getElementById('music-control');
+            const backgroundMusic = document.getElementById('background-music');
+            const musicIcon = document.getElementById('music-icon');
+            const musicText = document.getElementById('music-text');
+
+            const slideshowControl = document.getElementById('slideshow-control');
+            const slideshowIcon = document.getElementById('slideshow-icon');
+            const slideshowText = document.getElementById('slideshow-text');
+
+            let isMusicPlaying = true; // ตั้งค่าเริ่มต้นว่าเพลงเล่นอยู่
+                backgroundMusic.play().catch(error => {
+                // หากเบราว์เซอร์บล็อก autoplay, ให้เปลี่ยนสถานะกลับเป็นหยุด
+                console.error("Autoplay was prevented by browser policy:", error);
+                isMusicPlaying = false; 
+            });
+            
+            // อัปเดตไอคอนและข้อความทันที
+            // แต่จะเช็คสถานะล่าสุดอีกครั้งหลังผ่านไปเล็กน้อย เผื่อกรณีที่ autoplay ไม่สำเร็จ
+            setTimeout(() => {
+                if (isMusicPlaying) {
+                    musicIcon.classList.remove('fa-music');
+                    musicIcon.classList.add('fa-pause');
+                    musicText.textContent = 'ปิดเพลง';
+                } else {
+                    musicIcon.classList.remove('fa-pause');
+                    musicIcon.classList.add('fa-music');
+                    musicText.textContent = 'เปิดเพลง';
+                }
+            }, 100);
+
+            let currentIndex = 0;
+            // เก็บทั้ง src และ data-info ของรูปภาพจาก gallery-item ภายใน wrapper
+            const images = Array.from(galleryItems).map(item => ({
+                src: item.src,
+                info: item.dataset.info || item.alt
+            }));
+
+            let slideshowInterval;
+            let isSlideshowPlaying = false;
+            const slideshowDelay = 2000; // 3 วินาที
+
+            function showImage(index) {
+                if (index < 0) {
+                    currentIndex = images.length - 1;
+                } else if (index >= images.length) {
+                    currentIndex = 0;
+                } else {
+                    currentIndex = index;
+                }
+                lightboxImg.src = images[currentIndex].src;
+                lightboxInfo.textContent = images[currentIndex].info;
+            }
+
+            function startSlideshow() {
+                if (isSlideshowPlaying) return;
+                isSlideshowPlaying = true;
+                slideshowIcon.classList.remove('fa-play');
+                slideshowIcon.classList.add('fa-pause');
+                slideshowText.textContent = 'หยุดสไลด์โชว์';
+
+                slideshowInterval = setInterval(() => {
+                    showImage(currentIndex + 1);
+                }, slideshowDelay);
+            }
+
+            function stopSlideshow() {
+                if (!isSlideshowPlaying) return;
+                isSlideshowPlaying = false;
+                clearInterval(slideshowInterval);
+                slideshowIcon.classList.remove('fa-pause');
+                slideshowIcon.classList.add('fa-play');
+                slideshowText.textContent = 'เล่นสไลด์โชว์';
+            }
+
+            // ใช้ galleryItemWrappers ในการเพิ่ม event listener
+            galleryItemWrappers.forEach((wrapper, index) => {
+                wrapper.addEventListener('click', function() {
+                    lightbox.style.display = 'flex';
+                    lightbox.classList.add('active');
+                    showImage(index);
+                    // เมื่อเปิด lightbox, เริ่มสไลด์โชว์อัตโนมัติ
+                    startSlideshow();
+                });
+            });
+
+            closeButton.addEventListener('click', function() {
+                lightbox.style.display = 'none';
+                lightbox.classList.remove('active');
+                stopSlideshow(); // หยุดสไลด์โชว์เมื่อปิด Lightbox
+            });
+
+            prevButton.addEventListener('click', function(event) {
+                event.stopPropagation();
+                stopSlideshow(); // หยุดสไลด์โชว์เมื่อกดปุ่มเปลี่ยนรูป
+                showImage(currentIndex - 1);
+            });
+
+            nextButton.addEventListener('click', function(event) {
+                event.stopPropagation();
+                stopSlideshow(); // หยุดสไลด์โชว์เมื่อกดปุ่มเปลี่ยนรูป
+                showImage(currentIndex + 1);
+            });
+
+            // ปิด Lightbox เมื่อคลิกพื้นหลัง (แต่ไม่ปิดเมื่อคลิกปุ่ม nav)
+            lightbox.addEventListener('click', function(event) {
+                if (event.target === lightbox) {
+                    lightbox.style.display = 'none';
+                    lightbox.classList.remove('active');
+                    stopSlideshow();
+                }
+            });
+
+            // Keyboard navigation for lightbox
+            document.addEventListener('keydown', function(event) {
+                if (lightbox.style.display === 'flex') {
+                    if (event.key === 'ArrowLeft') {
+                        stopSlideshow();
+                        showImage(currentIndex - 1);
+                    } else if (event.key === 'ArrowRight') {
+                        stopSlideshow();
+                        showImage(currentIndex + 1);
+                    } else if (event.key === 'Escape') {
+                        lightbox.style.display = 'none';
+                        lightbox.classList.remove('active');
+                        stopSlideshow();
+                    }
+                }
+            });
+
+            // Music control
+            musicControl.addEventListener('click', function() {
+                if (isMusicPlaying) {
+                    backgroundMusic.pause();
+                    musicIcon.classList.remove('fa-pause');
+                    musicIcon.classList.add('fa-music');
+                    musicText.textContent = 'เปิดเพลง';
+                } else {
+                    backgroundMusic.play().catch(error => {
+                        console.error("Autoplay was prevented:", error);
+                        alert("เบราว์เซอร์ของคุณอาจบล็อกการเล่นเพลงอัตโนมัติ กรุณากดปุ่ม 'เปิดเพลง' อีกครั้งเพื่อเล่นเพลง");
+                    });
+                    musicIcon.classList.remove('fa-music');
+                    musicIcon.classList.add('fa-pause');
+                    musicText.textContent = 'ปิดเพลง';
+                }
+                isMusicPlaying = !isMusicPlaying;
+            });
+
+            // Slideshow control button
+            slideshowControl.addEventListener('click', function(event) {
+                event.stopPropagation(); // ป้องกันการปิด Lightbox
+                if (isSlideshowPlaying) {
+                    stopSlideshow();
+                } else {
+                    startSlideshow();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
